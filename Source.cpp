@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <cmath>
 
 using namespace std;
 
@@ -37,7 +38,7 @@ class CDCLSolver
 
     // marks the clause number that forced this assignment
     // if variable is picked, mark -1 instead
-    vector<int> literal_antecedent;
+    vector<int> variable_assignment_triggering_clause;
 
     int num_variables;      // total number of variables
     int num_assigned;       // number of variables currently assigned
@@ -46,6 +47,7 @@ class CDCLSolver
     ReturnValue UnitPropagation(int decision_level);
     int pickBranchingVariable();
     void assignVariable(int literal_to_assign, int decision_level, int triggering_clause);
+    void unassignVariable(int literal_to_unassign);
     int learnConflictAndBacktrack(int decision_level);
 
 public: 
@@ -56,6 +58,23 @@ public:
     void solve();
 };
 
+void CDCLSolver::assignVariable(int literal_to_assign, int decision_level, int triggering_clause) {
+    int variable = abs(literal_to_assign);
+    int polarity = literal_to_assign > 0 ? 1 : 0;
+    variable_states[variable] = polarity;
+    variable_assignment_decision_level[variable] = decision_level;
+    variable_assignment_triggering_clause[variable] = triggering_clause;
+    variable_frequency[variable] = -1;
+    num_assigned++;
+}
+
+void CDCLSolver::unassignVariable(int literal_to_unassign) {
+    variable_states[literal_to_unassign] = -1;
+    variable_assignment_decision_level[literal_to_unassign] = -1;
+    variable_assignment_triggering_clause[literal_to_unassign] = -1;
+    variable_frequency[literal_to_unassign] = initial_variable_frequency[literal_to_unassign];
+    num_assigned--;
+}
 
 ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
 
@@ -63,7 +82,9 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
 
 // returns an int with magnitude representing a variable number,
 // and sign (+/-) representing whether to assign true or false
-int CDCLSolver::pickBranchingVariable() {}
+int CDCLSolver::pickBranchingVariable() {
+
+}
 
 int CDCLSolver::learnConflictAndBacktrack(int decision_level){
     
