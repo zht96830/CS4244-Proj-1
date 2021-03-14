@@ -51,8 +51,8 @@ class CDCLSolver
     ReturnValue runCDCL();
     ReturnValue UnitPropagation(int decision_level);
     int pickBranchingVariable();
-    void assignVariable(int literal_to_make_true, int decision_level, int triggering_clause);
-    void unassignVariable(int literal_to_unassign);
+    void assignLiteral(int literal_to_make_true, int decision_level, int triggering_clause);
+    void unassignVariable(int variable_to_unassign);
     int learnConflictAndBacktrack(int decision_level);
     vector<int> resolution(vector<int>& first_clause, int resolution_variable);
     int getVariableIndex(int literal);
@@ -66,13 +66,16 @@ public:
     void solve();
 };
 
+// convert 1-indexed signed literal to 0-indexed unsigned variable
 int CDCLSolver::getVariableIndex(int literal) {
     return abs(literal) - 1;
 }
 
-void CDCLSolver::assignVariable(int literal_to_make_true, int decision_level, int triggering_clause) {
-    int variable = abs(literal_to_make_true);
-    int polarity = literal_to_make_true > 0 ? 1 : 0;
+// Note: takes in a 1-indexed literal
+// modifies variable_states vector for the corresponding 0-indexed variable
+void CDCLSolver::assignLiteral(int literal_to_make_true, int decision_level, int triggering_clause) {
+    int variable = getVariableIndex(literal_to_make_true);
+    int polarity = (literal_to_make_true > 0) ? 1 : 0;
     variable_states[variable] = polarity;
     variable_assignment_decision_level[variable] = decision_level;
     variable_assignment_triggering_clause[variable] = triggering_clause;
@@ -80,11 +83,13 @@ void CDCLSolver::assignVariable(int literal_to_make_true, int decision_level, in
     num_assigned++;
 }
 
-void CDCLSolver::unassignVariable(int literal_to_unassign) {
-    variable_states[literal_to_unassign] = -1;
-    variable_assignment_decision_level[literal_to_unassign] = -1;
-    variable_assignment_triggering_clause[literal_to_unassign] = -1;
-    variable_frequency[literal_to_unassign] = initial_variable_frequency[literal_to_unassign];
+// Note: takes in a 0-indexed variable
+// modifies variable_states vector for the corresponding 0-indexed variable
+void CDCLSolver::unassignVariable(int variable_to_unassign) {
+    variable_states[variable_to_unassign] = -1;
+    variable_assignment_decision_level[variable_to_unassign] = -1;
+    variable_assignment_triggering_clause[variable_to_unassign] = -1;
+    variable_frequency[variable_to_unassign] = initial_variable_frequency[variable_to_unassign];
     num_assigned--;
 }
 
@@ -100,19 +105,19 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
         
         // for each clause, count number of unassigned literals within
         for (int i = 0; i < formula.size(); i++) {
+            if (unit_clause_exists) break;
             num_unassigned_in_clause = 0;
             num_false_in_clause = 0;
-            last_unassigned_literal = -1;
             is_clause_satisfied = false;
 
-            for (int j = 0; j< formula[i].size(); j++) {
+            for (int j = 0; j < formula[i].size(); j++) {
                 int var = getVariableIndex(formula[i][j]);
                 if (variable_states[var] == -1) {
-                    // currently unassigned
+                    // variable currently unassigned
                     num_unassigned_in_clause++;
                     last_unassigned_literal = j;
                 } else if ((variable_states[var] == 0 && formula[i][j] > 0)
-                || (variable_states[var] == 1 && formula[i][j] < 0)) {
+                    || (variable_states[var] == 1 && formula[i][j] < 0)) {
                     // literal is false given current state of assignments
                     num_false_in_clause++;
                 } else {
@@ -128,7 +133,7 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
             if (num_unassigned_in_clause == 1) {
                 // Unit clause found
                 unit_clause_exists = true;
-                assignVariable(last_unassigned_literal, decision_level, i);
+                assignLiteral(formula[i][last_unassigned_literal], decision_level, i);
                 break;
             } else if (num_false_in_clause == formula[i].size()) {
                 // clause is unsat
@@ -170,6 +175,7 @@ int CDCLSolver::learnConflictAndBacktrack(int decision_level){
     int resolution_variable = -1;
 
     while (true){
+        num_literals_assigned_this_level = 0;
         for (int i = 0; i < clause_to_learn.size(); i++) {
             int variable = getVariableIndex(clause_to_learn[i]);
             
@@ -269,10 +275,11 @@ ReturnValue CDCLSolver::runCDCL() {
     
     // while not all variables are assigned: 
     while (num_assigned != num_variables) {
+        // cout << "num_assigned: " << num_assigned << " num_variables: " << num_variables << endl;
         // pick a variable to assign
         int literal_to_make_true = pickBranchingVariable();
         decision_level++;
-        assignVariable(literal_to_make_true, decision_level, -1);
+        assignLiteral(literal_to_make_true, decision_level, -1);
 
         // unit propagate | generate implication graph to check for unsat
         up_result = UnitPropagation(decision_level);
@@ -288,6 +295,8 @@ ReturnValue CDCLSolver::runCDCL() {
 
             // unit propagate for again
             up_result = UnitPropagation(decision_level);
+
+            // cout << "backtracked_decision_level: " << decision_level << endl;
         }
 
         // if unit propagation finishes without discovering UNSAT, continue to pick next variable
@@ -312,6 +321,10 @@ void CDCLSolver::init() {
     cin >> s;
     cin >> num_variables;
     cin >> num_clauses;
+
+    // reset class variables
+    conflict_clause_number = -1;
+    num_assigned = 0;
 
     // reset vectors
     formula.clear();
@@ -347,6 +360,7 @@ void CDCLSolver::init() {
             }
         }
     }
+    // make a copy of variable frequency at initialization
     initial_variable_frequency = variable_frequency;
 }
 
@@ -361,7 +375,7 @@ void CDCLSolver::printResult(ReturnValue result) {
         for (int i = 0; i < num_variables; i++) {
             // for variables that are assigned true, print as true;
             // for unassigned variables (which at this stage can take any value), print as false 
-            cout << ((variable_states[i] > 0) ? "" : "-") << i+1 << " ";
+            cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
         }
         cout << "0" << endl;
     } else {
@@ -369,7 +383,6 @@ void CDCLSolver::printResult(ReturnValue result) {
         cout << "UNSAT" << endl;
     }
 }
-
 
 int main()
 {
