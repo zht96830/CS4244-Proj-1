@@ -15,6 +15,7 @@ enum ReturnValue
 class CDCLSolver
 {
     /* stores info on whether variable has been assigned
+     * indexed from 0. Literals are indexed from 1;
      * -1: unassigned
      * 0 : assigned false
      * 1 : assigned true
@@ -30,8 +31,8 @@ class CDCLSolver
     // to be used for resetting
     vector<int> initial_variable_frequency;
 
-    // variable polarity difference 
-    vector<int> variable_polarity_difference;
+    // difference between number of true literals and false literals
+    vector<int> literal_polarity_difference;
 
     // stores for each variable which level in CDCL it is assigned
     vector<int> variable_assignment_decision_level;
@@ -47,7 +48,7 @@ class CDCLSolver
     ReturnValue runCDCL();
     ReturnValue UnitPropagation(int decision_level);
     int pickBranchingVariable();
-    void assignVariable(int literal_to_assign, int decision_level, int triggering_clause);
+    void assignVariable(int literal_to_make_true, int decision_level, int triggering_clause);
     void unassignVariable(int literal_to_unassign);
     int learnConflictAndBacktrack(int decision_level);
     int getVariableIndex(int literal);
@@ -66,9 +67,9 @@ int getVariableIndex(int literal) {
     return abs(literal) - 1;
 }
 
-void CDCLSolver::assignVariable(int literal_to_assign, int decision_level, int triggering_clause) {
-    int variable = abs(literal_to_assign);
-    int polarity = literal_to_assign > 0 ? 1 : 0;
+void CDCLSolver::assignVariable(int literal_to_make_true, int decision_level, int triggering_clause) {
+    int variable = abs(literal_to_make_true);
+    int polarity = literal_to_make_true > 0 ? 1 : 0;
     variable_states[variable] = polarity;
     variable_assignment_decision_level[variable] = decision_level;
     variable_assignment_triggering_clause[variable] = triggering_clause;
@@ -138,10 +139,25 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
     return ReturnValue::normal;
 }
 
-// returns an int with magnitude representing a variable number,
-// and sign (+/-) representing whether to assign true or false
+// returns a literal to be assigned true with sign (+/-) representing polarity
+// note: literal is 1-indexed
+// currently just picks variable with highest frequency, and chooses
+// the most frequent polarity to assign true
 int CDCLSolver::pickBranchingVariable() {
-
+    int max_frequency = 0;
+    int max_frequency_variable = -1;
+    for (int i = 0; i < variable_frequency.size(); i++) {
+        if (variable_frequency[i] > max_frequency) {
+            max_frequency = variable_frequency[i];
+            max_frequency_variable = i;
+        }
+    }
+    if (literal_polarity_difference[max_frequency_variable] < 0) {
+        // there are more false literals in the formula currently
+        // return the literal to be assigned true
+        return -max_frequency_variable - 1;
+    } 
+    return max_frequency_variable + 1;
 }
 
 int CDCLSolver::learnConflictAndBacktrack(int decision_level){
@@ -172,9 +188,9 @@ ReturnValue CDCLSolver::runCDCL() {
     // while not all variables are assigned: 
     while (num_assigned != num_variables) {
         // pick a variable to assign
-        int literal_to_assign = pickBranchingVariable();
+        int literal_to_make_true = pickBranchingVariable();
         decision_level++;
-        assignVariable(literal_to_assign, decision_level, -1);
+        assignVariable(literal_to_make_true, decision_level, -1);
 
         // unit propagate | generate implication graph to check for unsat
         up_result = UnitPropagation(decision_level);
