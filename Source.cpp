@@ -41,9 +41,10 @@ class CDCLSolver
     // if variable is picked, mark -1 instead
     vector<int> variable_assignment_triggering_clause;
 
+    int num_clauses;        // number of clauses
     int num_variables;      // total number of variables
     int num_assigned;       // number of variables currently assigned
-    int conflict_clause;    // clause that is found unsat, to be recorded for learning
+    int conflict_clause_number;    // clause that is found unsat, to be recorded for learning
 
     ReturnValue runCDCL();
     ReturnValue UnitPropagation(int decision_level);
@@ -51,6 +52,7 @@ class CDCLSolver
     void assignVariable(int literal_to_make_true, int decision_level, int triggering_clause);
     void unassignVariable(int literal_to_unassign);
     int learnConflictAndBacktrack(int decision_level);
+    vector<int> resolution(vector<int>& first_clause, int resolution_variable);
     int getVariableIndex(int literal);
 
     void printResult(ReturnValue result);
@@ -129,13 +131,13 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
                 break;
             } else if (num_false_in_clause == formula[i].size()) {
                 // clause is unsat
-                conflict_clause = i;
+                conflict_clause_number = i;
                 return ReturnValue::unsat;
             }
         }
     } while (unit_clause_exists);
     // reset conflict clause to null if unit propagation succeeds
-    conflict_clause == -1;
+    conflict_clause_number == -1;
     return ReturnValue::normal;
 }
 
@@ -156,13 +158,93 @@ int CDCLSolver::pickBranchingVariable() {
         // there are more false literals in the formula currently
         // return the literal to be assigned true
         return -max_frequency_variable - 1;
-    } 
+    }
     return max_frequency_variable + 1;
 }
 
+//
 int CDCLSolver::learnConflictAndBacktrack(int decision_level){
+    vector<int> clause_to_learn = formula[conflict_clause_number];
+    int num_literals_assigned_this_level = 0;
+    int resolution_variable = -1;
+
+    while (true){
+        for (int i = 0; i < clause_to_learn.size(); i++) {
+            int variable = getVariableIndex(clause_to_learn[i]);
+            
+            if (variable_assignment_decision_level[variable] == decision_level) {
+                num_literals_assigned_this_level++;
+                
+                // if the assignment was triggered by unit propagation, save the variable for resolution
+                if (variable_assignment_triggering_clause[variable] != -1) {
+                    resolution_variable = variable;
+                }
+            }
+        }
+        // if there is only 1 literal in the conflict causing clause assigned this level,
+        // it must be a root of the implication graph. i.e. ready to cut
+        if (num_literals_assigned_this_level == 1) break;
+        // otherwise, apply resolution on the currently related clauses
+        // to propagate up the implication graph
+        clause_to_learn = resolution(clause_to_learn, resolution_variable);
+    }
+
+    // learn clause and update states
+    formula.push_back(clause_to_learn);
+    for (int i = 0; i < clause_to_learn.size(); i++)  {
+        int variable = getVariableIndex(clause_to_learn[i]);
+        if (clause_to_learn[i] > 0) {
+            literal_polarity_difference[variable]++;
+        } else {
+            literal_polarity_difference[variable]--;
+        }
+        initial_variable_frequency[variable]++;
+        // if variable has not been assigned, update current frequency
+        if (variable_states[variable] == -1) {
+            variable_frequency[variable]++;
+        }
+    }
+    // update current number of clauses
+    num_clauses = formula.size();
     
+    // determining backtracking decision level
+    // find max level where literal in learnt clause has been assigned that is not current level
+    int decision_level_to_backtrack = 0;
+    for (int i = 0; i < clause_to_learn.size(); i++) {
+        int possible_decision_level = variable_assignment_decision_level[getVariableIndex(clause_to_learn[i])];
+        if (possible_decision_level < decision_level && 
+            possible_decision_level > decision_level_to_backtrack) {
+            decision_level_to_backtrack = possible_decision_level;
+        }
+    }
+    // unassign all variables post-backtracking level
+    for (int i = 0; i < variable_states.size(); i++) {
+        if (variable_assignment_decision_level[i] > decision_level_to_backtrack) {
+            unassignVariable(i);
+        }
+    }
+    return decision_level_to_backtrack;
 }
+
+
+vector<int> CDCLSolver::resolution(vector<int>& first_clause, int resolution_variable) {
+    vector<int> second_clause = formula[variable_assignment_triggering_clause[resolution_variable]];
+    // combine the two clauses
+    first_clause.insert(first_clause.end(), second_clause.begin(), second_clause.end());
+    
+    // remove any literals of the resolution variable
+    for (int i = 0; i < first_clause.size(); i++) {
+        if (first_clause[i] == resolution_variable + 1 || first_clause[i] == -resolution_variable - 1) {
+            first_clause.erase(first_clause.begin() + i);
+            i--;
+        }
+    }
+    // remove duplicates
+    sort(first_clause.begin(), first_clause.end() );
+    first_clause.erase( unique( first_clause.begin(), first_clause.end() ), first_clause.end() );
+
+    return first_clause;
+}   
 
 ReturnValue CDCLSolver::runCDCL() {
     int decision_level = 0;
