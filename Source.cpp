@@ -42,6 +42,7 @@ class CDCLSolver
 
     int num_variables;      // total number of variables
     int num_assigned;       // number of variables currently assigned
+    int conflict_clause;    // clause that is found unsat, to be recorded for learning
 
     ReturnValue runCDCL();
     ReturnValue UnitPropagation(int decision_level);
@@ -49,6 +50,9 @@ class CDCLSolver
     void assignVariable(int literal_to_assign, int decision_level, int triggering_clause);
     void unassignVariable(int literal_to_unassign);
     int learnConflictAndBacktrack(int decision_level);
+    int getVariableIndex(int literal);
+
+    void printResult(ReturnValue result);
 
 public: 
     /* intiailize class state from cin input.
@@ -57,6 +61,10 @@ public:
     void init();
     void solve();
 };
+
+int getVariableIndex(int literal) {
+    return abs(literal) - 1;
+}
 
 void CDCLSolver::assignVariable(int literal_to_assign, int decision_level, int triggering_clause) {
     int variable = abs(literal_to_assign);
@@ -77,7 +85,57 @@ void CDCLSolver::unassignVariable(int literal_to_unassign) {
 }
 
 ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
+    bool unit_clause_exists = false;
+    int num_unassigned_in_clause = 0;
+    int num_false_in_clause = 0;
+    int last_unassigned_literal = -1;
+    bool is_clause_satisfied = false;
 
+    do {
+        unit_clause_exists = false;
+        
+        // for each clause, count number of unassigned literals within
+        for (int i = 0; i < formula.size(); i++) {
+            num_unassigned_in_clause = 0;
+            num_false_in_clause = 0;
+            last_unassigned_literal = -1;
+            is_clause_satisfied = false;
+
+            for (int j = 0; j< formula[i].size(); j++) {
+                int var = getVariableIndex(formula[i][j]);
+                if (variable_states[var] == -1) {
+                    // currently unassigned
+                    num_unassigned_in_clause++;
+                    last_unassigned_literal = j;
+                } else if ((variable_states[var] == 0 && formula[i][j] > 0)
+                || (variable_states[var] == 1 && formula[i][j] < 0)) {
+                    // literal is false given current state of assignments
+                    num_false_in_clause++;
+                } else {
+                    // literal is true given current state of assignments
+                    is_clause_satisfied = true;
+                    break;
+                }   
+            }
+            if (is_clause_satisfied) {
+                // move on to the next clause;
+                continue;
+            }
+            if (num_unassigned_in_clause == 1) {
+                // Unit clause found
+                unit_clause_exists = true;
+                assignVariable(last_unassigned_literal, decision_level, i);
+                break;
+            } else if (num_false_in_clause == formula[i].size()) {
+                // clause is unsat
+                conflict_clause = i;
+                return ReturnValue::unsat;
+            }
+        }
+    } while (unit_clause_exists);
+    // reset conflict clause to null if unit propagation succeeds
+    conflict_clause == -1;
+    return ReturnValue::normal;
 }
 
 // returns an int with magnitude representing a variable number,
@@ -141,11 +199,28 @@ ReturnValue CDCLSolver::runCDCL() {
 }
 
 void CDCLSolver::init() {
-
 }
 
 void CDCLSolver::solve() {
+    ReturnValue result = runCDCL();
+    printResult(result);
 }
+
+void CDCLSolver::printResult(ReturnValue result) {
+    if (result == ReturnValue::sat) {
+        cout << "SAT" << endl;
+        for (int i = 0; i < num_variables; i++) {
+            // for variables that are assigned true, print as true;
+            // for unassigned variables (which at this stage can take any value), print as false 
+            cout << ((variable_states[i] > 0) ? "" : "-") << i+1 << " ";
+        }
+        cout << "0" << endl;
+    } else {
+        // print UNSAT
+        cout << "UNSAT" << endl;
+    }
+}
+
 
 int main()
 {
