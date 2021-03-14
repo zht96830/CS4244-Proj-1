@@ -1,7 +1,9 @@
 #include <iostream>
 #include <random>
+#include <string>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 using namespace std;
 
@@ -54,7 +56,6 @@ class CDCLSolver
     int learnConflictAndBacktrack(int decision_level);
     vector<int> resolution(vector<int>& first_clause, int resolution_variable);
     int getVariableIndex(int literal);
-
     void printResult(ReturnValue result);
 
 public: 
@@ -65,7 +66,7 @@ public:
     void solve();
 };
 
-int getVariableIndex(int literal) {
+int CDCLSolver::getVariableIndex(int literal) {
     return abs(literal) - 1;
 }
 
@@ -162,7 +163,7 @@ int CDCLSolver::pickBranchingVariable() {
     return max_frequency_variable + 1;
 }
 
-//
+
 int CDCLSolver::learnConflictAndBacktrack(int decision_level){
     vector<int> clause_to_learn = formula[conflict_clause_number];
     int num_literals_assigned_this_level = 0;
@@ -226,12 +227,11 @@ int CDCLSolver::learnConflictAndBacktrack(int decision_level){
     return decision_level_to_backtrack;
 }
 
-
 vector<int> CDCLSolver::resolution(vector<int>& first_clause, int resolution_variable) {
     vector<int> second_clause = formula[variable_assignment_triggering_clause[resolution_variable]];
     // combine the two clauses
     first_clause.insert(first_clause.end(), second_clause.begin(), second_clause.end());
-    
+
     // remove any literals of the resolution variable
     for (int i = 0; i < first_clause.size(); i++) {
         if (first_clause[i] == resolution_variable + 1 || first_clause[i] == -resolution_variable - 1) {
@@ -297,6 +297,57 @@ ReturnValue CDCLSolver::runCDCL() {
 }
 
 void CDCLSolver::init() {
+    char c;
+    string s;
+    // ignore comments
+    while (true) {
+        cin >> c;
+        if (c == 'c') {
+            getline(cin, s);            
+        } else {
+            // should be == 'p'
+            break;
+        }
+    }
+    cin >> s;
+    cin >> num_variables;
+    cin >> num_clauses;
+
+    // reset vectors
+    formula.clear();
+    formula.resize(num_clauses);
+    variable_states.clear();
+    variable_states.resize(num_variables, -1);
+    variable_assignment_decision_level.clear();
+    variable_assignment_decision_level.resize(num_variables, -1);
+    variable_assignment_triggering_clause.clear();
+    variable_assignment_triggering_clause.resize(num_variables, -1);
+    variable_frequency.clear();
+    variable_frequency.resize(num_variables, 0);
+    literal_polarity_difference.clear();
+    literal_polarity_difference.resize(num_variables, 0);
+
+    int literal;
+
+    for (int i = 0; i < num_clauses; i++) {
+        while (true) {
+            cin >> literal;
+            int variable = getVariableIndex(literal);
+            if (literal > 0) {
+                formula[i].push_back(literal);
+                variable_frequency[variable]++;
+                literal_polarity_difference[variable]++;
+            } else if (literal < 0) {
+                formula[i].push_back(literal);
+                variable_frequency[variable]++;
+                literal_polarity_difference[variable]--;
+            } else {
+                // end of claused reached
+                break;
+            }
+        }
+    }
+    initial_variable_frequency = variable_frequency;
 }
 
 void CDCLSolver::solve() {
