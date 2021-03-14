@@ -4,11 +4,12 @@
 # run.ps1
 # Check command line to verify SAT/UNSAT
 
-$testcaseFolder = ".\testcase-sat1"
+# $testcaseFolder = ".\testcase-sat1"
+# $testcaseFolder = ".\testcase-unsat1"
+$testcaseFolder = ".\test"
 
 Get-ChildItem $testcaseFolder | 
 Foreach-Object {
     $testfile = $_.DirectoryName + '\' + $_.Name
-    Start-Process .\solver.exe -RedirectStandardInput $testfile -NoNewWindow -Wait
-    ""
+    Start-Process .\Source.exe -RedirectStandardInput $testfile -NoNewWindow -Wait
 }
