@@ -4,6 +4,8 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <time.h>
+#include <fstream>
 
 using namespace std;
 
@@ -372,12 +374,12 @@ void CDCLSolver::solve() {
 void CDCLSolver::printResult(ReturnValue result) {
     if (result == ReturnValue::sat) {
         cout << "SAT" << endl;
-        for (int i = 0; i < num_variables; i++) {
-            // for variables that are assigned true, print as true;
-            // for unassigned variables (which at this stage can take any value), print as false 
-            cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
-        }
-        cout << "0" << endl;
+        // for (int i = 0; i < num_variables; i++) {
+        //     // for variables that are assigned true, print as true;
+        //     // for unassigned variables (which at this stage can take any value), print as false 
+        //     cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
+        // }
+        // cout << "0" << endl;
     } else {
         // print UNSAT
         cout << "UNSAT" << endl;
@@ -386,8 +388,28 @@ void CDCLSolver::printResult(ReturnValue result) {
 
 int main()
 {
+    // open file
+    ofstream timefile;
+    timefile.open ("time.txt");
+
     CDCLSolver solver;
     solver.init();
+    
+    // measure time start
+    clock_t t;
+	t = clock();
+
     solver.solve();
+    // measure time end
+	clock_t timeTaken = clock() - t;
+	// cout << "time: " << t << " miliseconds" << endl;
+	// cout << CLOCKS_PER_SEC << " clocks per second" << endl;
+	// cout << "time: " << t*1.0/CLOCKS_PER_SEC << " seconds" << endl;
+
+    // double dif = difftime (end,start);
+    cout << timeTaken << endl;
+    timefile << timeTaken << "\n";
+    
+    timefile.close();
     return 0;
 }
