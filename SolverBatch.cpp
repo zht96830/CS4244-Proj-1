@@ -174,8 +174,10 @@ int CDCLSolver::pickBranchingVariable() {
 int CDCLSolver::learnConflictAndBacktrack(int decision_level){
     vector<int> clause_to_learn = formula[conflict_clause_number];
     int num_literals_assigned_this_level = 0;
+    // to be used later for resolution
     int resolution_variable = -1;
 
+    // To count the number of variables assigned at this decision level
     while (true){
         num_literals_assigned_this_level = 0;
         for (int i = 0; i < clause_to_learn.size(); i++) {

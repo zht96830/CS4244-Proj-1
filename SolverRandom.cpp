@@ -151,11 +151,10 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
 
 // returns a literal to be assigned true with sign (+/-) representing polarity
 // note: literal is 1-indexed
-// currently just picks variable with highest frequency, and chooses
-// the most frequent polarity to assign true
+// Chooese unassigned variable randomly then picks the most occuring literal
 int CDCLSolver::pickBranchingVariable() {
 
-    cout << "picking";
+    // cout << "picking";
 
     int num_unassigned = num_variables - num_assigned;
     int chosen_variable = 0;
@@ -186,8 +185,10 @@ int CDCLSolver::pickBranchingVariable() {
 int CDCLSolver::learnConflictAndBacktrack(int decision_level){
     vector<int> clause_to_learn = formula[conflict_clause_number];
     int num_literals_assigned_this_level = 0;
+    // to be used later for resolution
     int resolution_variable = -1;
 
+    // To count the number of variables assigned at this decision level
     while (true){
         num_literals_assigned_this_level = 0;
         for (int i = 0; i < clause_to_learn.size(); i++) {
