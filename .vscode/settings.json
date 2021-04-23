@@ -1,6 +1,10 @@
 {
     "files.associations": {
         "vector": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "random": "cpp",
+        "istream": "cpp",
+        "string": "cpp",
+        "iostream": "cpp"
     }
 }
