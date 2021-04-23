@@ -58,14 +58,14 @@ class CDCLSolver
     int learnConflictAndBacktrack(int decision_level);
     vector<int> resolution(vector<int>& first_clause, int resolution_variable);
     int getVariableIndex(int literal);
-    void printResult(ReturnValue result);
+    void printResult(ReturnValue result, bool printSATliterals);
 
 public: 
     /* intiailize class state from cin input.
      * 
     */
     void init();
-    void solve();
+    void solve(bool printSATliterals);
 };
 
 // convert 1-indexed signed literal to 0-indexed unsigned variable
@@ -154,20 +154,43 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
 // currently just picks variable with highest frequency, and chooses
 // the most frequent polarity to assign true
 int CDCLSolver::pickBranchingVariable() {
-    int max_frequency = 0;
-    int max_frequency_variable = -1;
-    for (int i = 0; i < variable_frequency.size(); i++) {
-        if (variable_frequency[i] > max_frequency) {
-            max_frequency = variable_frequency[i];
-            max_frequency_variable = i;
+
+    int num_unassigned = num_variables - num_assigned;
+    int chosen_variable = 0;
+    int serial = (int)((double) rand() / (RAND_MAX) * num_unassigned);
+    // cout << "picked " << serial << " | " << num_unassigned << endl;
+
+    for (int i = 0; i < num_variables; i++) {
+        // search for unassigned variable
+        if (variable_states[i] == -1) {
+            // choose the serial-th unassigned variable
+            if (serial == 0) {
+                chosen_variable = i;
+                break;
+            }
+            serial--;
         }
     }
-    if (literal_polarity_difference[max_frequency_variable] < 0) {
+    
+    if (literal_polarity_difference[chosen_variable] < 0) {
         // there are more false literals in the formula currently
         // return the literal to be assigned true
-        return -max_frequency_variable - 1;
+        return -chosen_variable - 1;
     }
-    return max_frequency_variable + 1;
+    return chosen_variable + 1;
+
+    // int chosen_variable = 0;
+    // do {
+    //     chosen_variable = (int)((double) rand() / (RAND_MAX) * num_variables);
+    // }
+    // while (variable_states[chosen_variable]!= -1);
+    
+    if (literal_polarity_difference[chosen_variable] < 0) {
+        // there are more false literals in the formula currently
+        // return the literal to be assigned true
+        return -chosen_variable - 1;
+    }
+    return chosen_variable + 1;
 }
 
 
@@ -366,20 +389,22 @@ void CDCLSolver::init() {
     initial_variable_frequency = variable_frequency;
 }
 
-void CDCLSolver::solve() {
+void CDCLSolver::solve(bool printSATliterals) {
     ReturnValue result = runCDCL();
-    printResult(result);
+    printResult(result, printSATliterals);
 }
 
-void CDCLSolver::printResult(ReturnValue result) {
+void CDCLSolver::printResult(ReturnValue result, bool printSATliterals) {
     if (result == ReturnValue::sat) {
         cout << "SAT" << endl;
-        for (int i = 0; i < num_variables; i++) {
-            // for variables that are assigned true, print as true;
-            // for unassigned variables (which at this stage can take any value), print as false 
-            cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
+        if (printSATliterals) {
+            for (int i = 0; i < num_variables; i++) {
+                // for variables that are assigned true, print as true;
+                // for unassigned variables (which at this stage can take any value), print as false 
+                cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
+            }
+            cout << "0" << endl;
         }
-        cout << "0" << endl;
     } else {
         // print UNSAT
         cout << "UNSAT" << endl;
@@ -388,28 +413,57 @@ void CDCLSolver::printResult(ReturnValue result) {
 
 int main()
 {
-    // open file
+    // params 
+    int startfileno = 1;
+    int endfileno = 30;                                // must be less than 100 otherwise formatting issues
+    bool printSATliterals = false;
+    // string inputfiledir = "testcase-sat1/";
+    // string inputfileprefix = "uf20";
+    // string inputfiledir = "script_test_folder/";
+    // string inputfileprefix = "uuf50";
+    // string inputfiledir = "testcase-sat150/";
+    // string inputfileprefix = "uf150";
+    string inputfiledir = "testcase-sat75/";
+    string inputfileprefix = "uf75";
+
+    // open outputfile
     ofstream timefile;
     timefile.open ("time2.txt");
-
-    CDCLSolver solver;
-    solver.init();
     
-    // measure time start
-    clock_t t;
-	t = clock();
+    for (int fileno = startfileno; fileno <= endfileno; fileno++) {
 
-    solver.solve();
-    // measure time end
-	clock_t timeTaken = clock() - t;
-	// cout << "time: " << t << " miliseconds" << endl;
-	// cout << CLOCKS_PER_SEC << " clocks per second" << endl;
-	// cout << "time: " << t*1.0/CLOCKS_PER_SEC << " seconds" << endl;
+        // open input file
+        string inputfile = inputfileprefix + "-0" + to_string(fileno) + ".cnf";
+        string fulldir = inputfiledir + inputfile;
 
-    // double dif = difftime (end,start);
-    cout << timeTaken << endl;
-    timefile << timeTaken << "\n";
-    
+        // redirect cin
+        std::ifstream in(fulldir);
+        std::streambuf *cinbuf = std::cin.rdbuf(); //save old buf
+        std::cin.rdbuf(in.rdbuf()); //redirect std::cin to in.txt!
+
+        CDCLSolver solver;
+        solver.init();
+        
+        // change cin back to default
+        std::cin.rdbuf(cinbuf);   //reset to standard input again
+
+        // measure time start
+        clock_t t;
+        t = clock();
+
+        solver.solve(printSATliterals);
+        // measure time end
+        clock_t timeTaken = clock() - t;
+        // cout << "time: " << t << " miliseconds" << endl;
+        // cout << CLOCKS_PER_SEC << " clocks per second" << endl;
+        // cout << "time: " << t*1.0/CLOCKS_PER_SEC << " seconds" << endl;
+
+        // double dif = difftime (end,start);
+        cout << timeTaken << endl;
+        timefile << timeTaken << "\n";
+        
+    }
     timefile.close();
+
     return 0;
 }

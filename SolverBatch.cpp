@@ -394,8 +394,10 @@ int main()
     int startfileno = 1;
     int endfileno = 30;                                // must be less than 100 otherwise formatting issues
     bool printSATliterals = false;
-    string inputfiledir = "testcase-unsat150/";
-    string inputfileprefix = "uuf150";
+    // string inputfiledir = "testcase-unsat150/";
+    // string inputfileprefix = "uuf150";
+    string inputfiledir = "testcase-sat75/";
+    string inputfileprefix = "uf75";
 
     // open outputfile
     ofstream timefile;

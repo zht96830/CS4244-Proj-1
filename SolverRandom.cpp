@@ -58,14 +58,14 @@ class CDCLSolver
     int learnConflictAndBacktrack(int decision_level);
     vector<int> resolution(vector<int>& first_clause, int resolution_variable);
     int getVariableIndex(int literal);
-    void printResult(ReturnValue result);
+    void printResult(ReturnValue result, bool printSATliterals);
 
 public: 
     /* intiailize class state from cin input.
      * 
     */
     void init();
-    void solve();
+    void solve(bool printSATliterals);
 };
 
 // convert 1-indexed signed literal to 0-indexed unsigned variable
@@ -154,20 +154,32 @@ ReturnValue CDCLSolver::UnitPropagation(int decision_level) {
 // currently just picks variable with highest frequency, and chooses
 // the most frequent polarity to assign true
 int CDCLSolver::pickBranchingVariable() {
-    int max_frequency = 0;
-    int max_frequency_variable = -1;
-    for (int i = 0; i < variable_frequency.size(); i++) {
-        if (variable_frequency[i] > max_frequency) {
-            max_frequency = variable_frequency[i];
-            max_frequency_variable = i;
+
+    cout << "picking";
+
+    int num_unassigned = num_variables - num_assigned;
+    int chosen_variable = 0;
+    int serial = (int)((double) rand() / (RAND_MAX) * num_unassigned);
+    // cout << serial << " | " << num_unassigned << endl;
+
+    for (int i = 0; i < num_variables; i++) {
+        // search for unassigned variable
+        if (variable_states[i] == -1) {
+            // choose the serial-th unassigned variable
+            if (serial == 0) {
+                chosen_variable = i;
+                break;
+            }
+            serial--;
         }
     }
-    if (literal_polarity_difference[max_frequency_variable] < 0) {
+    
+    if (literal_polarity_difference[chosen_variable] < 0) {
         // there are more false literals in the formula currently
         // return the literal to be assigned true
-        return -max_frequency_variable - 1;
+        return -chosen_variable - 1;
     }
-    return max_frequency_variable + 1;
+    return chosen_variable + 1;
 }
 
 
@@ -366,20 +378,22 @@ void CDCLSolver::init() {
     initial_variable_frequency = variable_frequency;
 }
 
-void CDCLSolver::solve() {
+void CDCLSolver::solve(bool printSATliterals) {
     ReturnValue result = runCDCL();
-    printResult(result);
+    printResult(result, printSATliterals);
 }
 
-void CDCLSolver::printResult(ReturnValue result) {
+void CDCLSolver::printResult(ReturnValue result, bool printSATliterals) {
     if (result == ReturnValue::sat) {
         cout << "SAT" << endl;
-        for (int i = 0; i < num_variables; i++) {
-            // for variables that are assigned true, print as true;
-            // for unassigned variables (which at this stage can take any value), print as false 
-            cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
+        if (printSATliterals) {
+            for (int i = 0; i < num_variables; i++) {
+                // for variables that are assigned true, print as true;
+                // for unassigned variables (which at this stage can take any value), print as false 
+                cout << ((variable_states[i] == 1) ? "" : "-") << i+1 << " ";
+            }
+            cout << "0" << endl;
         }
-        cout << "0" << endl;
     } else {
         // print UNSAT
         cout << "UNSAT" << endl;
@@ -399,7 +413,7 @@ int main()
     clock_t t;
 	t = clock();
 
-    solver.solve();
+    solver.solve(true);
     // measure time end
 	clock_t timeTaken = clock() - t;
 	// cout << "time: " << t << " miliseconds" << endl;
