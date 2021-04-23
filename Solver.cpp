@@ -390,7 +390,7 @@ int main()
 {
     // open file
     ofstream timefile;
-    timefile.open ("time.txt");
+    timefile.open ("time2.txt");
 
     CDCLSolver solver;
     solver.init();
